@@ -5,6 +5,10 @@ export const reportService = {
     const response = await api.get('/reports');
     return response.data;
   },
+  get: async (reportId) => {
+    const response = await api.get(`/reports/${reportId}`);
+    return response.data;
+  },
   remove: async (reportId) => {
     const response = await api.delete(`/reports/${reportId}`);
     return response.data;

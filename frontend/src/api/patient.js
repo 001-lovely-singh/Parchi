@@ -17,4 +17,8 @@ export const patientService = {
     const response = await api.get('/patient/summary');
     return response.data;
   },
+  getSummaryPdf: async () => {
+    const response = await api.get('/patient/summary/pdf', { responseType: 'blob' });
+    return response.data;
+  },
 };

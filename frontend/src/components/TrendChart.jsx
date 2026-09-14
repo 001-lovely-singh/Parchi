@@ -14,7 +14,7 @@ import {
 const formatTickDate = (dateStr) => {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
-  return `${d.toLocaleDateString('en-US', { month: 'short' })} '${String(d.getFullYear()).slice(-2)}`;
+  return `${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })} '${String(d.getFullYear()).slice(-2)}`;
 };
 
 const TrendChart = ({ data, series, threshold, thresholdSource }) => {
@@ -22,7 +22,7 @@ const TrendChart = ({ data, series, threshold, thresholdSource }) => {
   // series: [{ key: 'creatinine', color: '#5ea8a8', label: 'Creatinine' }, ...]
   // threshold: { value: 1.3, label: '1.3 mg/dL' }
   const uid = useId();
-  const angleTicks = data.length > 4;
+  const angleTicks = data.length > 2; // full dates are wide — angle them sooner
 
   return (
     <div className="w-full h-64 relative">
@@ -74,6 +74,7 @@ const TrendChart = ({ data, series, threshold, thresholdSource }) => {
               dataKey={s.key}
               stroke="none"
               fill={`url(#${uid}-grad-${s.key})`}
+              connectNulls
               isAnimationActive={false}
             />
           ))}
@@ -86,6 +87,7 @@ const TrendChart = ({ data, series, threshold, thresholdSource }) => {
               strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
+              connectNulls
               dot={{ r: 4, fill: '#fff', stroke: s.color, strokeWidth: 2.5 }}
               activeDot={{ r: 6, fill: s.color, stroke: '#fff', strokeWidth: 2 }}
               name={s.label}

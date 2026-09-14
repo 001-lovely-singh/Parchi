@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Upload, Download } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import Navbar from '../components/Navbar';
+import UploadReportModal from '../components/UploadReportModal';
 import TrendChart from '../components/TrendChart';
 import InsufficientDataCard from '../components/InsufficientDataCard';
 import DoctorVisitBanner from '../components/DoctorVisitBanner';
@@ -11,23 +15,66 @@ import RecordsTable from '../components/RecordsTable';
 import HabitsCard from '../components/HabitsCard';
 import { patientService } from '../api/patient';
 
+// Blobs can't be handed to the user with <a download> inside the Android
+// webview, so on native we write the file and open the share sheet instead.
+const blobToBase64 = (blob) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+
 const SummaryPage = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const fetchSummary = async () => {
+    try {
+      const result = await patientService.getSummary();
+      setData(result);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Could not load your summary.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const result = await patientService.getSummary();
-        setData(result);
-      } catch (err) {
-        setError(err.response?.data?.message || err.message || 'Could not load your summary.');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    fetchSummary();
   }, []);
+
+  const handleDownloadPdf = async () => {
+    setDownloading(true);
+    try {
+      const blob = await patientService.getSummaryPdf();
+      const fileName = `Parchi-Summary-${new Date().toISOString().slice(0, 10)}.pdf`;
+
+      if (Capacitor.isNativePlatform()) {
+        const base64 = await blobToBase64(blob);
+        const { uri } = await Filesystem.writeFile({
+          path: fileName,
+          data: base64,
+          directory: Directory.Cache,
+        });
+        await Share.share({ title: 'Parchi health summary', url: uri });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      alert('Could not create the PDF: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -88,12 +135,31 @@ const SummaryPage = () => {
           <ArrowLeft size={14} /> Back to dashboard
         </Link>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-heading font-bold text-text-main">{data.patient.name}'s summary</h1>
-          <p className="text-sm text-text-muted mt-1">
-            Based on {data.patient.reportsCount} report{data.patient.reportsCount === 1 ? '' : 's'} from{' '}
-            {data.patient.rangeStart} to {data.patient.rangeEnd}
-          </p>
+        <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-heading font-bold text-text-main">{data.patient.name}'s summary</h1>
+            <p className="text-sm text-text-muted mt-1">
+              Based on {data.patient.reportsCount} report{data.patient.reportsCount === 1 ? '' : 's'} from{' '}
+              {data.patient.rangeStart} to {data.patient.rangeEnd}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloading}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-border-hairline text-text-main rounded-lg text-sm font-medium hover:bg-bg-main transition-colors disabled:opacity-50"
+            >
+              <Download size={16} />
+              {downloading ? 'Preparing…' : 'Download PDF'}
+            </button>
+            <button
+              onClick={() => setUploadOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
+            >
+              <Upload size={16} />
+              Upload Report
+            </button>
+          </div>
         </div>
 
         <div className="mb-10">
@@ -199,6 +265,12 @@ const SummaryPage = () => {
           <HabitsCard habits={data.habits} />
         </section>
       </main>
+
+      <UploadReportModal
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onComplete={fetchSummary}
+      />
     </div>
   );
 };

@@ -17,6 +17,7 @@ const {
   HBA1C_CATEGORY_CONSEQUENCES
 } = require('../utils/clinicalReference');
 const groqService = require('../services/groqService');
+const { generateSummaryPdf } = require('../services/summaryPdfService');
 
 const CORE_KEYS = ['creatinine', 'egfr', 'bun', 'acr', 'hba1c'];
 const SEVERITY_ORDER = ['see_doctor_soon', 'discuss_next_visit', 'monitor'];
@@ -85,6 +86,18 @@ function mergeChartSeries(seriesList) {
   return Object.values(byDate).sort((a, b) => new Date(a.date) - new Date(b.date));
 }
 
+// Phrase a projection in whichever unit reads naturally — months under a year, years beyond.
+function formatTimeToThreshold(yearsToThreshold) {
+  if (yearsToThreshold === null || yearsToThreshold === undefined) return null;
+
+  const months = Math.round(yearsToThreshold * 12);
+  if (months < 1) return { months, text: 'less than a month' };
+  if (months < 24) return { months, text: `${months} month${months === 1 ? '' : 's'}` };
+
+  const years = Math.round(yearsToThreshold * 10) / 10;
+  return { months, text: `${years} year${years === 1 ? '' : 's'}` };
+}
+
 // Deterministic, template-based narrative — no AI, every branch traceable to tier + projection numbers.
 function buildNarrative({ tierKey, projection, threshold, latestValue, unit, label, stageText }) {
   switch (tierKey) {
@@ -109,11 +122,11 @@ function buildNarrative({ tierKey, projection, threshold, latestValue, unit, lab
       };
     }
     case 'discuss_next_visit': {
-      const years = projection?.yearsToThreshold;
+      const when = formatTimeToThreshold(projection?.yearsToThreshold)?.text ?? 'some time';
       return {
-        whyFlagged: `${label} is trending toward the ${threshold.source} reference threshold (${threshold.value} ${unit}) — projected to reach it in about ${years} year(s) at the current rate.`,
+        whyFlagged: `${label} is trending toward the ${threshold.source} reference threshold (${threshold.value} ${unit}) — projected to reach it in about ${when} at the current rate.`,
         whenToSeeDoctor: 'Not urgent — bring this trend up at your next scheduled doctor visit.',
-        consequenceIfContinues: `${stageText ? stageText + ' ' : ''}If the current rate of change continues, ${label} may cross the reference threshold in approximately ${years} year(s).`
+        consequenceIfContinues: `${stageText ? stageText + ' ' : ''}If the current rate of change continues, ${label} may cross the reference threshold in approximately ${when}.`
       };
     }
     case 'monitor':
@@ -163,6 +176,10 @@ function buildAnalyteInsight({ analyteKey, label, unit, points, threshold, stage
     questionsToAsk: getQuestionsToAsk(analyteKey),
     latestValue: latestPoint ? latestPoint.value : null,
     latestDate: latestPoint ? formatDate(latestPoint.date) : null,
+    // structured so the UI/PDF can surface it as a callout instead of burying it in prose
+    timeToThreshold:
+      projection && !projection.alreadyCrossed ? formatTimeToThreshold(projection.yearsToThreshold) : null,
+    alreadyCrossed: Boolean(projection?.alreadyCrossed),
     ...narrative
   };
 }
@@ -224,7 +241,7 @@ function buildKeepAnEye(insights) {
         label: insight.label,
         currentValue: latestValue,
         unit: insight.unit,
-        reason: `Trending toward the ${insight.threshold.source} threshold (${thresholdValue} ${insight.unit}) — projected in about ${insight.projection?.yearsToThreshold ?? '?'} year(s) at the current rate.`
+        reason: `Trending toward the ${insight.threshold.source} threshold (${thresholdValue} ${insight.unit}) — projected in about ${insight.timeToThreshold?.text ?? 'some time'} at the current rate.`
       });
     } else if (tierKey === 'monitor' && withinTenPercent) {
       items.push({
@@ -272,13 +289,14 @@ function buildRecordsList(byAnalyte, insightsByKey) {
   return records;
 }
 
-exports.getSummary = async (req, res) => {
-  try {
-    const patient = req.user;
+// Builds the whole summary payload. Shared by the JSON endpoint and the PDF export
+// so both always describe the patient identically.
+async function buildSummary(patient) {
+  {
     const verifiedRecords = await AnalyteRecord.find({ patient: patient._id, status: 'verified' }).sort('date');
 
     if (verifiedRecords.length === 0) {
-      return res.json({
+      return ({
         patient: { name: patient.name, reportsCount: 0, rangeStart: null, rangeEnd: null },
         doctorVisit: {
           level: 'gathering_data',
@@ -418,7 +436,7 @@ exports.getSummary = async (req, res) => {
       habits = { diet: [], movement: [], general: [], disclaimer: DISCLAIMER };
     }
 
-    res.json({
+    return {
       patient: {
         name: patient.name,
         reportsCount: reportIds.length,
@@ -445,9 +463,33 @@ exports.getSummary = async (req, res) => {
       allNormal,
       records,
       habits
-    });
+    };
+  }
+}
+
+exports.buildSummary = buildSummary;
+
+exports.getSummary = async (req, res) => {
+  try {
+    res.json(await buildSummary(req.user));
   } catch (err) {
     console.error('Summary generation failed:', err);
     res.status(500).json({ message: 'Failed to generate summary', error: err.message });
+  }
+};
+
+exports.getSummaryPdf = async (req, res) => {
+  try {
+    const summary = await buildSummary(req.user);
+    const stamp = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).replace(' ', '-');
+    const safeName = summary.patient.name.replace(/[^a-z0-9]+/gi, '-');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Parchi-Summary-${safeName}-${stamp}.pdf"`);
+
+    generateSummaryPdf(summary, res);
+  } catch (err) {
+    console.error('Summary PDF generation failed:', err);
+    res.status(500).json({ message: 'Failed to generate summary PDF', error: err.message });
   }
 };

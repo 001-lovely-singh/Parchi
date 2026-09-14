@@ -64,6 +64,37 @@ exports.listReports = async (req, res) => {
   }
 };
 
+exports.getReport = async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.reportId);
+    if (!report) return res.status(404).json({ message: 'Report not found' });
+
+    const isPatient = report.patient.equals(req.user._id);
+    const isClinic = report.clinic && report.clinic.equals(req.user._id);
+    if (!isPatient && !isClinic) {
+      return res.status(403).json({ message: 'Access denied to this report' });
+    }
+
+    const records = await AnalyteRecord.find({ report: report._id }).sort('analyteName');
+
+    res.json({
+      _id: report._id,
+      reportDate: report.reportDate,
+      labName: report.labName,
+      records: records.map((r) => ({
+        _id: r._id,
+        analyteName: r.analyteName,
+        rawLabel: r.rawLabel,
+        value: r.value,
+        unit: r.unit,
+        status: r.status
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to load report', error: err.message });
+  }
+};
+
 exports.deleteReport = async (req, res) => {
   try {
     const report = await Report.findById(req.params.reportId);

@@ -1,4 +1,5 @@
 import React from 'react';
+import { TrendingUp, AlertTriangle, MessageCircleQuestion } from 'lucide-react';
 import TierBadge from './TierBadge';
 
 const AnalyteExplanationCard = ({ insight }) => {
@@ -14,7 +15,9 @@ const AnalyteExplanationCard = ({ insight }) => {
     whyFlagged,
     whenToSeeDoctor,
     questionsToAsk,
-    consequenceIfContinues
+    consequenceIfContinues,
+    timeToThreshold,
+    alreadyCrossed
   } = insight;
 
   return (
@@ -45,6 +48,36 @@ const AnalyteExplanationCard = ({ insight }) => {
         </div>
       )}
 
+      {(timeToThreshold || alreadyCrossed) && (
+        <div
+          className={`mb-4 flex items-start gap-3 rounded-lg border-l-4 p-4 ${
+            alreadyCrossed
+              ? 'bg-danger-light border-danger'
+              : 'bg-warning-light border-warning'
+          }`}
+        >
+          {alreadyCrossed ? (
+            <AlertTriangle size={18} className="text-danger shrink-0 mt-0.5" />
+          ) : (
+            <TrendingUp size={18} className="text-warning shrink-0 mt-0.5" />
+          )}
+          <div>
+            <span
+              className={`block text-[11px] font-semibold uppercase tracking-wide mb-0.5 ${
+                alreadyCrossed ? 'text-danger' : 'text-warning'
+              }`}
+            >
+              {alreadyCrossed ? 'Already past the threshold' : 'Projected to reach threshold'}
+            </span>
+            <p className="text-sm font-semibold text-text-main">
+              {alreadyCrossed
+                ? `Your latest ${label} is at or beyond the reference threshold.`
+                : `At the current rate, in about ${timeToThreshold.text}.`}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="bg-bg-main rounded-lg p-3">
           <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-1">
@@ -68,15 +101,26 @@ const AnalyteExplanationCard = ({ insight }) => {
       </div>
 
       {questionsToAsk?.length > 0 && (
-        <div className="mt-3">
-          <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-1">
-            What to ask your doctor
-          </span>
-          <ul className="list-disc list-inside space-y-1 text-sm text-text-main">
+        <div className="mt-4">
+          <div className="flex items-center gap-1.5 mb-2">
+            <MessageCircleQuestion size={14} className="text-primary" />
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+              What to ask your doctor
+            </span>
+          </div>
+          <div className="space-y-2">
             {questionsToAsk.map((q, i) => (
-              <li key={i}>{q}</li>
+              <div
+                key={i}
+                className="flex gap-2.5 rounded-lg border border-primary-light bg-primary-light/20 px-3 py-2.5"
+              >
+                <span className="font-mono text-[11px] font-semibold text-primary shrink-0 mt-0.5">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <p className="text-sm text-text-main">{q}</p>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       )}
     </div>
