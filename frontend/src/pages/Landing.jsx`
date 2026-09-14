@@ -1,0 +1,125 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, User, Building2, Activity, ShieldCheck } from 'lucide-react';
+import Footer from '../components/Footer';
+
+const Landing = () => {
+  return (
+    <div className="min-h-screen flex flex-col">
+      <div className="max-w-7xl mx-auto px-4 w-full flex justify-between items-center py-4">
+        <div className="font-heading text-2xl font-semibold text-primary lowercase">
+          parchi
+        </div>
+        <div className="flex gap-4">
+          <Link to="/login" className="text-sm font-medium text-text-muted hover:text-primary transition-colors">
+            Log In
+          </Link>
+          <Link
+            to="/signup"
+            className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
+          >
+            Sign Up
+          </Link>
+        </div>
+      </div>
+
+      <main className="flex-1">
+        {/* Hero Section */}
+        <div className="flex items-center justify-center px-4 py-20 text-center">
+          <div className="max-w-3xl">
+            <h1 className="text-4xl md:text-6xl font-heading font-bold text-text-heading leading-tight mb-6">
+              See the trend in your reports <br />
+              <span className="text-primary">before a single one looks abnormal</span>
+            </h1>
+            <p className="text-lg text-text-secondary mb-10 max-w-2xl mx-auto leading-relaxed">
+              Parchi helps you track key health markers over time. By analyzing your
+              historical lab reports, we visualize directions and trends, giving you
+              and your doctor a clearer picture of your health journey.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link
+                to="/signup"
+                className="px-8 py-4 bg-primary text-white rounded-xl font-medium text-lg hover:bg-primary-dark transition-all shadow-soft hover:shadow-md flex items-center justify-center gap-2"
+              >
+                Get Started for Free <ArrowRight size={20} />
+              </Link>
+              <Link
+                to="/login"
+                className="px-8 py-4 bg-white text-text-main border border-border-hairline rounded-xl font-medium text-lg hover:bg-gray-50 transition-all"
+              >
+                Log In to Account
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Explore Section - Links to all pages */}
+        <div className="bg-white py-20 border-y border-border-hairline">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-heading font-bold text-text-heading mb-4">Explore Parchi</h2>
+              <p className="text-text-secondary max-w-xl mx-auto">
+                Experience how Parchi transforms raw lab data into actionable health trends for both patients and clinics.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[
+                {
+                  title: 'Patient Dashboard',
+                  desc: 'View your health trends and upload reports.',
+                  icon: <User className="text-primary" />,
+                  link: '/patient-dashboard',
+                  color: 'bg-primary-light'
+                },
+                {
+                  title: 'Clinic Portal',
+                  desc: 'Manage linked patients and monitor trends.',
+                  icon: <Building2 className="text-secondary" />,
+                  link: '/clinic-dashboard',
+                  color: 'bg-secondary-light'
+                },
+                {
+                  title: 'Account Creation',
+                  desc: 'Join Parchi as a patient or clinic.',
+                  icon: <ShieldCheck className="text-success" />,
+                  link: '/signup',
+                  color: 'bg-green-100'
+                },
+                {
+                  title: 'Health Insights',
+                  desc: 'See how we visualize lab data trends.',
+                  icon: <Activity className="text-accent" />,
+                  link: '/patient-dashboard',
+                  color: 'bg-teal-100'
+                }
+              ].map((item, i) => (
+                <Link
+                  key={i}
+                  to={item.link}
+                  className="group p-6 bg-white border border-border-hairline rounded-2xl hover:border-primary transition-all shadow-soft hover:shadow-md flex flex-col items-start gap-4"
+                >
+                  <div className={`p-3 rounded-xl ${item.color}`}>
+                    {item.icon}
+                  </div>
+                  <div className="w-full">
+                    <h3 className="font-heading font-semibold text-text-heading mb-1 group-hover:text-primary transition-colors">
+                      {item.title}
+                    </h3>
+                    <p className="text-sm text-text-muted">{item.desc}</p>
+                  </div>
+                  <div className="mt-auto flex items-center text-xs font-medium text-primary group-hover:gap-2 transition-all">
+                    Explore <ArrowRight size={14} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+};
+
+export default Landing;
