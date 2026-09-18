@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { Preferences } from '@capacitor/preferences';
 
 const AuthContext = createContext();
 
@@ -8,35 +9,32 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    (async () => {
+      const { value: storedToken } = await Preferences.get({ key: 'token' });
+      const { value: storedUser } = await Preferences.get({ key: 'user' });
+      if (storedToken && storedUser) {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      }
+      setLoading(false);
+    })();
   }, []);
 
-  const login = (userData, authToken) => {
+  const persist = async (userData, authToken) => {
     setUser(userData);
     setToken(authToken);
-    localStorage.setItem('token', authToken);
-    localStorage.setItem('user', JSON.stringify(userData));
+    await Preferences.set({ key: 'token', value: authToken });
+    await Preferences.set({ key: 'user', value: JSON.stringify(userData) });
   };
 
-  const signup = (userData, authToken) => {
-    setUser(userData);
-    setToken(authToken);
-    localStorage.setItem('token', authToken);
-    localStorage.setItem('user', JSON.stringify(userData));
-  };
+  const login = persist;
+  const signup = persist;
 
-  const logout = () => {
+  const logout = async () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    await Preferences.remove({ key: 'token' });
+    await Preferences.remove({ key: 'user' });
   };
 
   return (
