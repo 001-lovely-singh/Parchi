@@ -1,27 +1,22 @@
 import axios from 'axios';
+import { Preferences } from '@capacitor/preferences';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-});
+const api = axios.create({ baseURL: API_BASE_URL });
 
-// Request interceptor to add JWT token
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+api.interceptors.request.use(async (config) => {
+  const { value: token } = await Preferences.get({ key: 'token' });
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Response interceptor to handle 401s
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      await Preferences.remove({ key: 'token' });
+      await Preferences.remove({ key: 'user' });
       window.location.href = '/login';
     }
     return Promise.reject(error);
